@@ -1,0 +1,40 @@
+import telebot
+from telegram import Update
+from telegram.ext import Updater, CommandHandler, MessageHandler, filters, CallbackContext
+from transformers import pipeline
+
+# Replace with your Telegram Bot API token
+TOKEN = '6423768645:AAFl89BgvlEguDQ_EfUjfrCDJs00RVlqqE8'
+
+question_generator = pipeline(task="question-answering", model="distilbert-base-cased-distilled-squad", tokenizer="distilbert-base-cased-distilled-squad")
+
+bot= telebot.TeleBot(TOKEN)
+
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    welcome_message = "مرحبًا! أنا هنا لمساعدتك في استخراج أسئلة من النصوص."
+    welcome_message += "\nقم بإرسال النص الذي تريد استخراج الأسئلة منه."
+    bot.reply_to(message, welcome_message)
+
+def filter_questions(questions):
+    filtered_questions = []
+    for q in questions:
+        if len(q['question']) > 5 and len(q['answer']) > 5:
+            filtered_questions.append(q)
+    return filtered_questions
+
+@bot.message_handler(func=lambda message: True)
+def extract_and_filter_questions(message):
+    text = message.text
+    questions = question_generator(text)
+    filtered_questions = filter_questions(questions)
+   
+    if filtered_questions:
+        extracted_questions = "\n".join([f"Q: {q['question']} - A: {q['answer']}" for q in filtered_questions])
+        response_message = "الأسئلة المستخرجة:\n" + extracted_questions
+    else:
+        response_message = "لم يتم العثور على أسئلة مناسبة في النص."
+   
+    bot.reply_to(message, response_message)
+
+bot.polling()
